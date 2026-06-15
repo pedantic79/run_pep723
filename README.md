@@ -1,12 +1,12 @@
 # `run_pep723`
 
-`run_pep723` is a wrapper script designed to run tools or execute Python scripts in a temporary, clean virtual environment managed by [`uv`](https://github.com/astral-sh/uv). 
+`run_pep723` is a wrapper script designed to run tools or execute Python scripts in a temporary, clean virtual environment managed by [`uv`](https://github.com/astral-sh/uv).
 
-It automatically detects Python scripts containing PEP 723 metadata (inline script metadata), exports their declared dependencies, installs them into the temporary virtual environment, runs the target script or tool, and then automatically cleans up the virtual environment upon completion.
+It automatically detects Python scripts containing [PEP 723](https://peps.python.org/pep-0723/) metadata (inline script metadata), exports their declared dependencies, installs them into the temporary virtual environment, runs the target script or tool, and then automatically cleans up the virtual environment upon completion.
 
 ## Features
 
-- **PEP 723 Inline Metadata Support**: Automatically scans all `.py` files in the current working directory, extracts dependencies from any files using PEP 723 format (e.g., `# /// script`), and installs/syncs them.
+- **[PEP 723](https://peps.python.org/pep-0723/) Inline Metadata Support**: Automatically scans all `.py` files in the current working directory, extracts dependencies from any files using PEP 723 format (e.g., `# /// script`), and installs/syncs them.
 - **On-the-Fly Environment Creation**: Dynamically creates a virtual environment (`.venv`) using `uv` if one doesn't exist. If `.venv` already exists, the script exits with an error unless `--with-existing-venv` is specified.
 - **Custom Tool Execution**: Run any specific script or CLI tool within the environment, and optionally pre-install other tools using the `--with` flag (e.g., `ruff`, `black`).
 - **Safety First**: Verifies that the workspace does not contain a `pyproject.toml` file to prevent modifying or messing with existing project environments.
@@ -39,8 +39,8 @@ It automatically detects Python scripts containing PEP 723 metadata (inline scri
 
 ## Examples
 
-### Running a script with PEP 723 metadata
-If you have a script `get_holidays.py` with inline metadata:
+### Running a script with [PEP 723](https://peps.python.org/pep-0723/) metadata
+If you have a script `script.py` with inline metadata:
 ```python
 # /// script
 # requires-python = ">=3.11"
@@ -53,27 +53,26 @@ print("Hello World!")
 ```
 Run it like this:
 ```bash
-./run_pep723 get_holidays.py 2026
+./run_pep723 script.py arg1 arg2
 ```
 
 ### Running tools without installing them globally
 You can run tools like `ruff` or `black` on your files using the `--with` flag:
 ```bash
-./run_pep723 --with ruff ruff check get_holidays.py
+./run_pep723 --with ruff ruff check script.py
 ```
 
 Using multiple tools together:
 ```bash
-./run_pep723 --with black --with ruff black --check get_holidays.py
+./run_pep723 --with black --with ruff black --check script.py
 ```
 
 ### Running with an existing virtual environment
 To use an existing `.venv` and preserve it after running:
 ```bash
-./run_pep723 --with-existing-venv get_holidays.py 2026
+./run_pep723 --with-existing-venv script.py arg1 arg2
 ```
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
