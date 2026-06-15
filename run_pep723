@@ -16,6 +16,7 @@ Options:
   -h, --help              Show this help message and exit
   --with <tool>           Install and run the specified tool (can be specified multiple times)
   --with-existing-venv    Use the existing .venv if it exists, and do not delete it on exit
+  --with-verbose-uv       Show verbose output from uv commands and the script
 
 Behavior:
   1. Verifies that the current directory is not a pyproject.toml project.
@@ -46,6 +47,7 @@ with_args=()
 tool=""
 tool_args=()
 with_existing_venv=false
+with_verbose_uv=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -55,6 +57,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --with-existing-venv)
       with_existing_venv=true
+      shift
+      ;;
+    --with-verbose-uv)
+      with_verbose_uv=true
       shift
       ;;
     --with)
@@ -85,7 +91,9 @@ created_venv=false
 # Setup cleanup trap to delete the venv on exit
 cleanup() {
   if [ "$created_venv" = true ] && [ -d ".venv" ]; then
-    echo "Cleaning up: deleting virtual environment..."
+    if [ "$with_verbose_uv" = true ]; then
+      echo "Cleaning up: deleting virtual environment..."
+    fi
     rm -rf .venv
   fi
 }
@@ -97,10 +105,24 @@ if [ -d ".venv" ]; then
     echo "Error: Virtual environment (.venv) already exists. Use --with-existing-venv to allow running with it." >&2
     exit 1
   fi
-  echo "Virtual environment already exists at .venv. Using existing environment as requested."
+  if [ "$with_verbose_uv" = true ]; then
+    echo "Virtual environment already exists at .venv. Using existing environment as requested."
+  fi
 else
-  echo "Setting up virtual environment..."
-  uv venv
+  if [ "$with_verbose_uv" = true ]; then
+    echo "Setting up virtual environment..."
+  fi
+  if [ "$with_verbose_uv" = true ]; then
+    uv venv
+  else
+    tmpfile=$(mktemp)
+    if ! uv venv > "$tmpfile" 2>&1; then
+      cat "$tmpfile" >&2
+      rm -f "$tmpfile"
+      exit 1
+    fi
+    rm -f "$tmpfile"
+  fi
   created_venv=true
 fi
 
@@ -117,15 +139,35 @@ for file in *.py; do
 done
 
 if [[ ${#has_metadata_scripts[@]} -gt 0 ]]; then
-  echo "Found Python scripts with PEP 723 metadata: ${has_metadata_scripts[*]}"
-  echo "Exporting and syncing dependencies..."
-  for file in "${has_metadata_scripts[@]}"; do
-    uv export --script "$file"
-  done | uv pip sync -
+  if [ "$with_verbose_uv" = true ]; then
+    echo "Found Python scripts with PEP 723 metadata: ${has_metadata_scripts[*]}"
+    echo "Exporting and syncing dependencies..."
+    for file in "${has_metadata_scripts[@]}"; do
+      uv export --script "$file"
+    done | uv pip sync -
+  else
+    tmpfile=$(mktemp)
+    if ! {
+      for file in "${has_metadata_scripts[@]}"; do
+        uv export --script "$file" 2>> "$tmpfile"
+      done | uv pip sync - >> "$tmpfile" 2>&1
+    }; then
+      cat "$tmpfile" >&2
+      rm -f "$tmpfile"
+      exit 1
+    fi
+    rm -f "$tmpfile"
+  fi
 else
-  echo "No Python scripts with PEP 723 metadata found in the current directory."
+  if [ "$with_verbose_uv" = true ]; then
+    echo "No Python scripts with PEP 723 metadata found in the current directory."
+  fi
 fi
 
 # 4. Run uv run --with <toola> --with <toolb>... <tool> <args>...
-echo "Running: uv run ${with_args[*]:-} $tool ${tool_args[*]:-}"
-uv run ${with_args[@]+"${with_args[@]}"} "$tool" ${tool_args[@]+"${tool_args[@]}"}
+if [ "$with_verbose_uv" = true ]; then
+  echo "Running: uv run ${with_args[*]:-} $tool ${tool_args[*]:-}"
+  uv run ${with_args[@]+"${with_args[@]}"} "$tool" ${tool_args[@]+"${tool_args[@]}"}
+else
+  uv run -q ${with_args[@]+"${with_args[@]}"} "$tool" ${tool_args[@]+"${tool_args[@]}"}
+fi

@@ -11,6 +11,7 @@ It automatically detects Python scripts containing [PEP 723](https://peps.python
 - **Custom Tool Execution**: Run any specific script or CLI tool within the environment, and optionally pre-install other tools using the `--with` flag (e.g., `ruff`, `black`).
 - **Safety First**: Verifies that the workspace does not contain a `pyproject.toml` file to prevent modifying or messing with existing project environments.
 - **Automatic Cleanup**: If `.venv` was created by this script, it automatically cleans up and deletes it on exit. If an existing `.venv` was used via `--with-existing-venv`, it is preserved.
+- **Quiet Execution by Default**: Suppresses diagnostic logs and `uv` setup/progress output so that only the output of the executed script or tool is displayed on success. In case of failure, `uv` logs are printed for debugging. Use `--with-verbose-uv` to force verbose output.
 
 ## Prerequisites
 
@@ -27,6 +28,7 @@ run_pep723 [options] <script_or_tool> [args...]
 - `-h, --help`: Show the help message and exit.
 - `--with <tool>`: Install and run the specified tool (can be specified multiple times).
 - `--with-existing-venv`: Use the existing `.venv` if it exists, and do not delete it on exit.
+- `--with-verbose-uv`: Show verbose output from `uv` commands and the script.
 
 ### Behavior
 
