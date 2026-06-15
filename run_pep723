@@ -1,0 +1,131 @@
+#!/bin/bash
+# run_pep723 - Run tools or Python scripts in a temporary uv virtual environment.
+# Copyright (c) 2026 Dan Nguyen
+# Licensed under the MIT License (see LICENSE file for details)
+
+set -euo pipefail
+
+# Define show_help function
+show_help() {
+  cat << EOF
+Usage: $(basename "$0") [options] <script_or_tool> [args...]
+
+A wrapper script to execute tools or Python scripts within a virtual environment managed by uv.
+
+Options:
+  -h, --help              Show this help message and exit
+  --with <tool>           Install and run the specified tool (can be specified multiple times)
+  --with-existing-venv    Use the existing .venv if it exists, and do not delete it on exit
+
+Behavior:
+  1. Verifies that the current directory is not a pyproject.toml project.
+  2. Checks if a virtual environment (.venv) already exists. If it does, exits with an error
+     unless --with-existing-venv is specified.
+  3. Creates a temporary virtual environment using 'uv venv' (if it doesn't already exist).
+  4. Scans all Python (.py) scripts in the current directory for PEP 723 metadata,
+     exports their dependencies, and syncs them into the virtual environment.
+  5. Executes the specified <script_or_tool> with the provided arguments using 'uv run'.
+  6. Deletes the virtual environment (.venv) on exit if it was created by this script.
+
+Examples:
+  $(basename "$0") get_holidays.py 2026
+  $(basename "$0") --with ruff ruff check get_holidays.py
+  $(basename "$0") --with black --with ruff black --check get_holidays.py
+  $(basename "$0") --with-existing-venv get_holidays.py 2026
+EOF
+}
+
+# 1. Verify that this is not a pyproject.toml project
+if [ -f "pyproject.toml" ]; then
+  echo "Error: pyproject.toml detected. This script is only for non-pyproject.toml projects." >&2
+  exit 1
+fi
+
+# Parse arguments
+with_args=()
+tool=""
+tool_args=()
+with_existing_venv=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      show_help
+      exit 0
+      ;;
+    --with-existing-venv)
+      with_existing_venv=true
+      shift
+      ;;
+    --with)
+      if [[ -z "${2:-}" ]]; then
+        echo "Error: --with option requires an argument" >&2
+        exit 1
+      fi
+      with_args+=("--with" "$2")
+      shift 2
+      ;;
+    *)
+      tool="$1"
+      shift
+      tool_args+=("$@")
+      break
+      ;;
+  esac
+done
+
+if [[ -z "$tool" ]]; then
+  echo "Error: No script or tool specified." >&2
+  echo "Usage: $0 [--with tool]* <script_or_tool> [args...]" >&2
+  exit 1
+fi
+
+created_venv=false
+
+# Setup cleanup trap to delete the venv on exit
+cleanup() {
+  if [ "$created_venv" = true ] && [ -d ".venv" ]; then
+    echo "Cleaning up: deleting virtual environment..."
+    rm -rf .venv
+  fi
+}
+trap cleanup EXIT
+
+# 2. Setup a venv with uv venv
+if [ -d ".venv" ]; then
+  if [ "$with_existing_venv" = false ]; then
+    echo "Error: Virtual environment (.venv) already exists. Use --with-existing-venv to allow running with it." >&2
+    exit 1
+  fi
+  echo "Virtual environment already exists at .venv. Using existing environment as requested."
+else
+  echo "Setting up virtual environment..."
+  uv venv
+  created_venv=true
+fi
+
+# 3. Find all Python scripts in the current directory containing PEP 723 metadata,
+# export their dependencies, and sync the virtual environment.
+has_metadata_scripts=()
+for file in *.py; do
+  if [[ ! -e "$file" ]]; then
+    continue
+  fi
+  if grep -q '^# /// script' "$file"; then
+    has_metadata_scripts+=("$file")
+  fi
+done
+
+if [[ ${#has_metadata_scripts[@]} -gt 0 ]]; then
+  echo "Found Python scripts with PEP 723 metadata: ${has_metadata_scripts[*]}"
+  echo "Exporting and syncing dependencies..."
+  for file in "${has_metadata_scripts[@]}"; do
+    uv export --script "$file"
+  done | uv pip sync -
+else
+  echo "No Python scripts with PEP 723 metadata found in the current directory."
+fi
+
+# 4. Run uv run --with <toola> --with <toolb>... <tool> <args>...
+echo "Running: uv run ${with_args[*]:-} $tool ${tool_args[*]:-}"
+uv run ${with_args[@]+"${with_args[@]}"} "$tool" ${tool_args[@]+"${tool_args[@]}"}
