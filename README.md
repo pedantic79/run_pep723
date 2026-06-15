@@ -19,7 +19,7 @@ It automatically detects Python scripts containing [PEP 723](https://peps.python
 ## Usage
 
 ```bash
-./run_pep723 [options] <script_or_tool> [args...]
+run_pep723 [options] <script_or_tool> [args...]
 ```
 
 ### Options
@@ -53,24 +53,24 @@ print("Hello World!")
 ```
 Run it like this:
 ```bash
-./run_pep723 script.py arg1 arg2
+run_pep723 script.py arg1 arg2
 ```
 
 ### Running tools without installing them globally
 You can run tools like `ruff` or `black` on your files using the `--with` flag:
 ```bash
-./run_pep723 --with ruff ruff check script.py
+run_pep723 --with ruff ruff check script.py
 ```
 
 Using multiple tools together:
 ```bash
-./run_pep723 --with black --with ruff black --check script.py
+run_pep723 --with black --with ruff black --check script.py
 ```
 
 ### Running with an existing virtual environment
 To use an existing `.venv` and preserve it after running:
 ```bash
-./run_pep723 --with-existing-venv script.py arg1 arg2
+run_pep723 --with-existing-venv script.py arg1 arg2
 ```
 
 ## License
